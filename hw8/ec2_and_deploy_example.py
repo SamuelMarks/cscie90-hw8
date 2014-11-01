@@ -36,30 +36,50 @@ def deploy():
     with cd('"$HOME/cscie90-hw8"'):
         sudo('git pull', user='ubuntu')
 
+    with cd('/etc/init'):
+        fabric_env.sudo_user = 'root'
+        daemon = 'hw8d'
+        sudo('> {name}.conf'.format(name=daemon))
+        sudo('chmod 700 {name}.conf'.format(name=daemon))
+        sudo('''cat << EOF >> {name}.conf
+start on runlevel [2345]
+stop on runlevel [016]
+
+respawn
+setuid nobody
+setgid nogroup
+exec python "$HOME/cscie90-hw8/hw8/server.py"
+EOF
+            '''.format(name=daemon))
+        sudo('initctl reload-configuration')
+
 
 def serve():
     if not exists('"$HOME/cscie90-hw8"'):
         raise OSError('Folder: "$HOME/cscie90-hw8" doesn\'t exists but should')
 
-    sudo('pkill python || true')
-    # ^ Obviously in production I would use a proper daemon-manager that would handle:
-    # PIDs, backgrounding, logging and respawning
+    fabric_env.sudo_user = 'root'
+    daemon = 'hw8d'
+    sudo('stop {name}'.format(name=daemon), warn_only=True)
+    sudo('start {name}'.format(name=daemon))  # Restart is less reliable, especially if it's in a stopped state
 
-    with cd('"$HOME/cscie90-hw8/hw8"'):
-        sudo('python server.py &', user='ubuntu')
+
+def tail():
+    daemon = 'hw8d'
+    return sudo('tail /var/log/upstart/{name}.log -n 50 -f'.format(name=daemon))
 
 
 if __name__ == '__main__':
     my_instance_name = 'cscie90_hw8'
-    with EC2Wrapper(ami_image_id=my_instance_name, persist=False) as ec2:
+    with EC2Wrapper(ami_image_id=my_instance_name, persist=True) as ec2:
         hw8_instances = tuple(inst for res in ec2.get_instances() for inst in res.instances
                               if inst.tags.get('Name', '').startswith('hw8'))
         for instance in hw8_instances:
             ec2.set_instance(instance)
             tried = 0
-            print 'instance.state =', instance.state
             while instance.state != 'running':
                 if tried == 0:
+                    print 'instance.state is', instance.state
                     ec2.start_instance()
                     print 'Starting instance and waiting (up to) 2 minutes for it to come up'
                 elif tried > 60:
@@ -70,3 +90,4 @@ if __name__ == '__main__':
             # print run3(lambda: sudo('whoami'))
             print run3(deploy)
             print run3(serve)
+            print run3(tail)

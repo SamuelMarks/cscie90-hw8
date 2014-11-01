@@ -76,6 +76,7 @@ class EC2Wrapper(object):
             print "No instance to remove"
             return []
         return self.conn.stop_instances(self.instance.id)  # Stop, don't delete (for now)
+        # self.conn.terminate_instances(self.instance.id)
 
     @staticmethod
     def run(inst, commands, username='ubuntu'):
