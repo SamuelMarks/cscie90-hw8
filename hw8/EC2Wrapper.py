@@ -21,8 +21,9 @@ class EC2Wrapper(object):
     instance = None
     image_id = None
 
-    def __init__(self, ami_image_id, random_rename=False, persist=False):
-        self.instance_name = ami_image_id
+    def __init__(self, ami_image_id, name='', random_rename=False, persist=False):
+        self.ami_image_id = ami_image_id
+        self.instance_name = name
         if random_rename:  # To handle 'You must wait 60 seconds after deleting a instance' error
             self.instance_name += str(randint(1, 100))
         self.conn = self.configure()
@@ -57,6 +58,15 @@ class EC2Wrapper(object):
         self.image_id = self.conn.create_image(instance_id, name, description)
         return self.image_id
 
+    def create_instance(self, security_group='ssh_http_rdp', placement='ap-southeast-2'):
+        if not self.ami_image_id:
+            raise ValueError('self.ami_image_id must be set')
+        print 'image_id =', self.ami_image_id
+        print 'security_groups =', [security_group]
+        return self.conn.run_instances(image_id=self.ami_image_id, instance_type='t1.micro',
+                                       placement=placement,
+                                       security_groups=[security_group], monitoring_enabled=True)
+
     def get_instances(self):
         return self.conn.get_all_instances(filters={'architecture': 'x86_64'})
 
@@ -70,6 +80,9 @@ class EC2Wrapper(object):
         self.conn.start_instances(instance_id)
         self.instance = self.conn.start_instances(instance_id)[0]
         return self.instance
+
+    def list_security_groups(self):
+        return self.conn.get_all_security_groups()
 
     def delete(self):
         if not self.instance:
@@ -102,3 +115,9 @@ class EC2Wrapper(object):
         :param host: DNS name or IP address
         """
         return execute(commands, host=host)
+
+
+if __name__ == '__main__':
+    with EC2Wrapper('') as ec2:
+        print tuple(group for group in ec2.list_security_groups() if group.name == 'ssh_http_rdp')[0]
+        # print filter(lambda elem: dir(elem), ec2.list_security_groups())[0]

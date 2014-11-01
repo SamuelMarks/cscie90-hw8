@@ -27,7 +27,7 @@ def first_run():
     sudo('apt-get update')
     sudo('apt-get install -q -y --force-yes python-pip python-twisted git')
     sudo('git clone https://github.com/SamuelMarks/cscie90-hw8', user='ubuntu')
-    sudo('pip install -r ~/cscie90-hw8/requirements.txt')
+    sudo('pip install -r "$HOME/cscie90-hw8/requirements.txt"')
 
 
 def deploy():
@@ -71,7 +71,10 @@ def tail():
 
 if __name__ == '__main__':
     my_instance_name = 'cscie90_hw8'
+
+    '''
     with EC2Wrapper(ami_image_id=my_instance_name, persist=True) as ec2:
+        # Launch the base image, set it up and create it:
         hw8_instances = tuple(inst for res in ec2.get_instances() for inst in res.instances
                               if inst.tags.get('Name', '').startswith('hw8'))
         for instance in hw8_instances:
@@ -90,4 +93,20 @@ if __name__ == '__main__':
             # print run3(lambda: sudo('whoami'))
             print run3(deploy)
             print run3(serve)
-            print run3(tail)
+            # print run3(tail)
+        if len(hw8_instances) < 2:
+            with open('cache', 'w') as f:
+                f.write(ec2.create_image_from_instance('hw8_base', 'Base image for creating more instances'))
+    '''
+
+    base_image_id = open('cache', 'rt').read()
+    with EC2Wrapper(ami_image_id=base_image_id, persist=True) as ec2_base0, \
+            EC2Wrapper(ami_image_id=base_image_id, persist=True) as ec2_base1, \
+            EC2Wrapper(ami_image_id=base_image_id, persist=True) as ec2_base2:
+        # Create and launch the three instances:
+        instance_id = ec2_base0.create_instance()
+        ec2_base0.start_instance(instance_id)
+        instance_id = ec2_base1.create_instance()
+        ec2_base1.start_instance(instance_id)
+        instance_id = ec2_base2.create_instance(placement='ap-southeast-1')
+        ec2_base2.start_instance(instance_id)

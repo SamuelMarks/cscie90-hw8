@@ -110,7 +110,7 @@ class SQSWrapper(object):
 
 
 if __name__ == '__main__':
-    my_queue_name = 'cscie90_hw6_throwaway'
+    my_queue_name = 'cscie90_hw8_throwaway'
     with SQSWrapper(queue_name=my_queue_name, persist=False) as sqs:
         if not sqs.create_queue():
             sqs.get_queue()  # Assume it's been created already and just get it
