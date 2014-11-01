@@ -1,9 +1,9 @@
 from setuptools import setup, find_packages
 
-from hw7 import __author__, __version__
+from hw8 import __author__, __version__
 
 if __name__ == '__main__':
-    package_name = 'hw7'
+    package_name = 'hw8'
     setup(
         name=package_name,
         author=__author__,

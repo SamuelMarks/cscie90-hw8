@@ -3,12 +3,23 @@
 from os.path import expanduser, join as path_join
 from random import randint
 from pprint import PrettyPrinter
+from functools import partial
 
 from boto.ec2 import connect_to_region
+from boto.manage.cmdshell import sshclient_from_instance
 from boto.exception import EC2ResponseError
 
+from fabric.tasks import execute
+from fabric.api import env as fabric_env, sudo
+from fabric.context_managers import cd
+from fabric.contrib.files import exists
 
 pp = PrettyPrinter(indent=4).pprint
+
+fabric_env.skip_bad_hosts = True
+fabric_env.user = 'ubuntu'
+fabric_env.sudo_user = 'ubuntu'
+fabric_env.key_filename = expanduser(path_join(expanduser('~'), '.ssh', 'aws', 'private', 'cscie90.pem'))
 
 
 def print_then_false(s):
@@ -51,17 +62,19 @@ class EC2Wrapper(object):
     def list_all_images(self, filters=None):
         if not filters:  # Not as default arguments, as they should be immutable
             filters = {
-                'architecture': 'x86_64',
-                'name': 'ubuntu/images/ebs-ssd/ubuntu-trusty-14.04-amd64-server-20140927',
+                'architecture': 'x86_64'
 
             }
         return self.conn.get_all_images(owners=['amazon'], filters=filters)
+
+    def get_instances(self):
+        return self.conn.get_all_instances(filters={'architecture': 'x86_64'})
 
     def create_instance(self, visibility_timeout=20):
         try:
             self.instance = self.conn.create_instance(self.instance_name, visibility_timeout)
             return True
-        except EC2Error as e:
+        except EC2ResponseError as e:
             error = str(e)
             # error = ElementTree.fromstring(err[err.find('<?xml'):])
             # Why parse [O(n log n) or O(n) at best], then find [O(1) or O(log n) or O(n)]
@@ -121,10 +134,71 @@ class EC2Wrapper(object):
             return []
         return self.conn.delete_instance(self.instance)
 
+    @staticmethod
+    def run(inst, commands, username='ubuntu'):
+        """
+        Returns a tuple of tuples consisting of:
+        #    The integer status of the command
+        #    A string containing the output of the command
+        #    A string containing the stderr output of the command
+        """
+        ssh_client = sshclient_from_instance(inst, user_name=username,
+                                             ssh_key_file=expanduser(path_join(expanduser('~'),
+                                                                               '.ssh', 'aws', 'private',
+                                                                               'cscie90.pem')))
+        return tuple(ssh_client.run(command) for command in commands)
+
+    @staticmethod
+    def run2(commands, host):
+        return execute(commands, host=host)
+
+
+def first_run():
+    fabric_env.sudo_user = 'root'
+    if exists('"$HOME/cscie90-hw8"', use_sudo=True):
+        return deploy()
+
+    sudo('apt-get update')
+    sudo('apt-get install -q -y --force-yes python-pip python-twisted git')
+    sudo('git clone https://github.com/SamuelMarks/cscie90-hw8', user='ubuntu')
+    sudo('pip install -r ~/cscie90-hw8/requirements.txt')
+
+
+def deploy():
+    if not exists('"$HOME"/cscie90-hw8', use_sudo=True):
+        return first_run()
+    with cd('"$HOME/cscie90-hw8"'):
+        sudo('git pull', user='ubuntu')
+
+
+def serve():
+    with cd('"$HOME/cscie90-hw8/hw8"'):
+        sudo('python server.py', user='ubuntu')
+
 
 if __name__ == '__main__':
-    my_instance_name = 'cscie90_hw6_throwaway'
+    my_instance_name = 'cscie90_hw8_throwaway'
     with EC2Wrapper(ami_image_id=my_instance_name, persist=False) as ec2:
+        hw8_instances = tuple(inst for res in ec2.get_instances() for inst in res.instances
+                              if inst.tags.get('Name', '').startswith('hw8'))
+        for instance in hw8_instances:
+            run3 = partial(ec2.run2, host=getattr(instance, 'public_dns_name'))
+            # print run3(lambda: sudo('whoami'))
+            print run3(first_run)
+            print run3(deploy)
+            print run3(serve)
+            '''
+            for i in dir(instance):
+                if not i.startswith('_'):
+                    print i, '=', getattr(instance, i)
+            '''
+        '''
+        for instance in ec2.get_instances():
+            for i in dir(instance.instances):
+                if not i.startswith('_'):
+                    print i, '=', getattr(instance.instances, i)
+        '''
+        '''
         for image in ec2.list_all_images():
             print 'name =', image.name
             print 'tags =', image.tags
@@ -134,12 +208,13 @@ if __name__ == '__main__':
 
         print tuple(image for image in ec2.list_all_images()
                     if '14.04' in image.name)
+        '''
         # pp(dir(ec2.list_all_images()[0]))
-        #if not ec2.create_instance():
-        #ec2.get_instance()  # Assume it's been created already and just get it
-        #ec2.send_message('Hello world')
-        #ec2.send_message('Goodbye world')
-        #print 'Retrieved from instance:', map(lambda m: m.get_body(), ec2.receive_message(number_messages=2))
+        # if not ec2.create_instance():
+        # ec2.get_instance()  # Assume it's been created already and just get it
+        # ec2.send_message('Hello world')
+        # ec2.send_message('Goodbye world')
+        # print 'Retrieved from instance:', map(lambda m: m.get_body(), ec2.receive_message(number_messages=2))
         # Unlike SimpleDB this doesn't have consistent read, so ^ will
         # return any(['Hello World'], ['Goodbye World'], ['Hello World', 'Goodbye World'])
         # I could send batch messages I suppose...
