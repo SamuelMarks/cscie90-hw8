@@ -172,6 +172,8 @@ def deploy():
 
 
 def serve():
+    if not exists('"$HOME"/cscie90-hw8'):
+        raise OSError("Folder: '\"$HOME\"/cscie90-hw8' doesn't exists but should")
     with cd('"$HOME/cscie90-hw8/hw8"'):
         sudo('python server.py', user='ubuntu')
 
@@ -184,7 +186,6 @@ if __name__ == '__main__':
         for instance in hw8_instances:
             run3 = partial(ec2.run2, host=getattr(instance, 'public_dns_name'))
             # print run3(lambda: sudo('whoami'))
-            print run3(first_run)
             print run3(deploy)
             print run3(serve)
             '''

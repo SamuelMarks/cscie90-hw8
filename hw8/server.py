@@ -5,7 +5,7 @@ from urllib2 import urlopen
 
 from klein import Klein
 
-from hw8 import __version__
+from __init__ import __version__
 
 
 class SimpleApp(object):
