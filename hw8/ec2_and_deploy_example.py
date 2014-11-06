@@ -72,7 +72,6 @@ def tail():
 if __name__ == '__main__':
     my_instance_name = 'cscie90_hw8'
 
-    '''
     with EC2Wrapper(ami_image_id=my_instance_name, persist=True) as ec2:
         # Launch the base image, set it up and create it:
         hw8_instances = tuple(inst for res in ec2.get_instances() for inst in res.instances
@@ -97,7 +96,6 @@ if __name__ == '__main__':
         if len(hw8_instances) < 2:
             with open('cache', 'w') as f:
                 f.write(ec2.create_image_from_instance('hw8_base', 'Base image for creating more instances'))
-    '''
 
     base_image_id = open('cache', 'rt').read()
     with EC2Wrapper(ami_image_id=base_image_id, persist=True) as ec2_base0, \

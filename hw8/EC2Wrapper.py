@@ -47,10 +47,10 @@ class EC2Wrapper(object):
     def list_all_images(self, filters=None):
         if not filters:  # Not as default arguments, as they should be immutable
             filters = {
-                'architecture': 'x86_64'
-                # TODO: Figure out how to search for an AMI by name
+                'architecture': 'x86_64',
+                'name': 'ubuntu*ssd*14.04*20140724'
             }
-        return self.conn.get_all_images(owners=['amazon'], filters=filters)
+        return self.conn.get_all_images(owners=['099720109477'], filters=filters)
 
     def create_image_from_instance(self, name, description=None, instance_id=None):
         if not instance_id:
@@ -120,4 +120,4 @@ class EC2Wrapper(object):
 if __name__ == '__main__':
     with EC2Wrapper('') as ec2:
         print tuple(group for group in ec2.list_security_groups() if group.name == 'ssh_http_rdp')[0]
-        # print filter(lambda elem: dir(elem), ec2.list_security_groups())[0]
+        print map(lambda elem: elem.name, ec2.list_all_images())

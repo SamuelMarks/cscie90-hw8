@@ -40,10 +40,12 @@ class SimpleApp(object):
     @app.route('/msg/receive')
     def msg_receive(self, request):
         request.setHeader('Content-Type', 'application/json')
-        return dumps(dict(received=map(lambda m: m.get_body(), sqs.receive_message(number_messages=2))))
+        return dumps(dict(received=map(lambda m: m.get_body(), self.sqs.receive_message(number_messages=2))))
 
 
 if __name__ == '__main__':
+    SimpleApp(None).app.run('0.0.0.0', 8080)
+    '''
     my_queue_name = 'cscie90_hw8'
     with SQSWrapper(queue_name=my_queue_name, persist=False) as sqs:
         if not sqs.create_queue():
@@ -54,3 +56,4 @@ if __name__ == '__main__':
 
         simple_app = SimpleApp(sqs)
         simple_app.app.run('0.0.0.0', 8080)
+    '''
